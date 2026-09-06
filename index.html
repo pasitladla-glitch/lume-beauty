@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUMÉ Beauty — Virtual Try-On</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#FAF9F7;--surface:#fff;--border:#E8E5E0;--text:#1A1A1A;--muted:#8A8580;--accent:#C4836A;--accent-d:#9A5E4A;--font-d:'Cormorant Garamond',serif;--font-b:'Montserrat',sans-serif}
+html,body{height:100%;font-family:var(--font-b);background:#0a0a0a;color:#fff;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;max-width:430px;margin:0 auto;background:#0a0a0a;position:relative;overflow:hidden}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,.8);border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;z-index:50}
+.brand{font-family:var(--font-d);font-size:1.4rem;letter-spacing:.12em;font-weight:300;line-height:1}
+.brand-sub{font-size:.48rem;letter-spacing:.35em;color:var(--accent);font-family:var(--font-b);font-weight:500;display:block;margin-top:2px}
+.nav{display:flex;gap:3px}
+.nav-btn{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);padding:5px 10px;border-radius:20px;font-family:var(--font-b);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.nav-btn.active,.nav-btn:hover{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.4)}
+/* Camera */
+.cam-area{position:relative;flex:1;min-height:0;background:#111;overflow:hidden}
+#vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:2}
+/* Start screen */
+.start-screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;background:linear-gradient(160deg,#1a0a08 0%,#0a0a0a 100%)}
+.start-icon{font-size:3.5rem}
+.start-title{font-family:var(--font-d);font-size:2rem;font-weight:300;letter-spacing:.06em}
+.start-sub{font-size:.8rem;color:rgba(255,255,255,.5);line-height:1.7;max-width:260px}
+.start-btn{background:var(--accent);color:#fff;border:none;padding:15px 38px;border-radius:30px;font-family:var(--font-b);font-size:.82rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.2s;margin-top:4px}
+.start-btn:hover{background:var(--accent-d)}
+.start-note{font-size:.63rem;color:rgba(255,255,255,.28)}
+/* Loading */
+.loading{position:absolute;inset:0;z-index:15;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(0,0,0,.88)}
+.loading.show{display:flex}
+.spinner{width:38px;height:38px;border:2px solid rgba(255,255,255,.12);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:.76rem;color:rgba(255,255,255,.5);letter-spacing:.06em;text-align:center;max-width:240px;line-height:1.6}
+/* Error */
+.err-screen{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;background:#0a0a0a}
+.err-screen.show{display:flex}
+.err-title{font-family:var(--font-d);font-size:1.4rem;font-weight:300}
+.err-sub{font-size:.76rem;color:rgba(255,255,255,.4);line-height:1.6;max-width:260px}
+.retry-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:#fff;padding:11px 26px;border-radius:24px;font-family:var(--font-b);font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px}
+/* Face guide */
+.face-guide{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.face-guide.show{display:flex}
+.face-oval{width:180px;height:230px;border:2px dashed rgba(255,255,255,.28);border-radius:50% 50% 45% 45%;transition:.4s}
+.face-oval.on{border-color:rgba(196,131,106,.8);border-style:solid}
+.guide-txt{margin-top:14px;font-size:.7rem;color:rgba(255,255,255,.4);letter-spacing:.05em;transition:.3s}
+.privacy{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;font-size:.58rem;color:rgba(255,255,255,.28);white-space:nowrap}
+/* Panel */
+.panel{background:var(--surface);color:var(--text);padding:14px 16px 18px;flex-shrink:0;border-radius:20px 20px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.3)}
+.shade-meta{font-size:.7rem;color:var(--muted);margin-bottom:10px;min-height:16px;letter-spacing:.03em}
+.shade-row{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.shade-row::-webkit-scrollbar{display:none}
+.sw{width:32px;height:32px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:.18s;outline:none}
+.sw.active{border-color:#1a1a1a;transform:scale(1.22)}
+.prod-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.prod-info p{font-family:var(--font-d);font-size:.95rem;font-weight:400;line-height:1.2}
+.prod-info small{font-size:.7rem;color:var(--muted)}
+.add-btn{background:#1a1a1a;color:#fff;border:none;padding:11px 20px;border-radius:30px;cursor:pointer;font-family:var(--font-b);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;transition:.2s;white-space:nowrap;flex-shrink:0}
+.add-btn:hover{background:#333}
+.add-btn.done{background:var(--accent)}
+/* Screens */
+.screen{position:absolute;inset:0;background:var(--bg);color:var(--text);overflow-y:auto;z-index:30;display:none;flex-direction:column}
+.screen.show{display:flex}
+.scr-hdr{padding:22px 20px 0;flex-shrink:0}
+.scr-hdr h2{font-family:var(--font-d);font-size:1.8rem;font-weight:300}
+.scr-hdr p{font-size:.76rem;color:var(--muted);margin-top:3px}
+/* Shop */
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;padding-bottom:30px}
+.prod-card{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s}
+.prod-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
+.prod-thumb{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px}
+.prod-thumb-title{font-family:var(--font-d);font-size:.8rem;letter-spacing:.06em;text-align:center;color:#fff;opacity:.9}
+.sw-mini-row{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.sw-mini{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25)}
+.prod-body{padding:11px}
+.prod-body h3{font-family:var(--font-d);font-size:.9rem;font-weight:400;margin-bottom:2px}
+.prod-body .cat{font-size:.65rem;color:var(--muted);margin-bottom:6px}
+.try-btn{width:100%;background:#1a1a1a;color:#fff;border:none;padding:8px;border-radius:18px;font-family:var(--font-b);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.try-btn:hover{background:#333}
+/* ── Custom Color Picker Section ── */
+.color-picker-section{padding:14px 20px;border-bottom:1px solid var(--border)}
+.color-picker-section h3{font-family:var(--font-d);font-size:1.1rem;font-weight:400;margin-bottom:10px}
+.picker-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.color-palette{display:flex;gap:6px;flex-wrap:wrap}
+.palette-sw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.18s;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.palette-sw:hover{transform:scale(1.15)}
+.palette-sw.picked{border-color:#1a1a1a;transform:scale(1.2)}
+.custom-hex{display:flex;gap:8px;align-items:center;margin-top:10px}
+.custom-hex input[type=color]{width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none}
+.custom-hex input[type=text]{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:var(--font-b);font-size:.78rem;width:90px;outline:none}
+.custom-hex input[type=text]:focus{border-color:var(--accent)}
+.finish-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.finish-btn{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-family:var(--font-b);font-size:.68rem;cursor:pointer;transition:.2s;letter-spacing:.05em}
+.finish-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.opacity-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.opacity-row label{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.opacity-row input[type=range]{flex:1;accent-color:var(--accent)}
+.add-custom-btn{width:100%;margin-top:12px;background:var(--accent);color:#fff;border:none;padding:10px;border-radius:20px;font-family:var(--font-b);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.add-custom-btn:hover{background:var(--accent-d)}
+.custom-shades-list{padding:12px 20px 0;display:flex;gap:8px;flex-wrap:wrap}
+/* Cart */
+.cart-body{padding:16px;padding-bottom:30px;flex:1}
+.cart-item{display:flex;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--border)}
+.ci-dot{width:44px;height:44px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(0,0,0,.08)}
+.ci-info strong{font-family:var(--font-d);font-size:.9rem;display:block;margin-bottom:2px}
+.ci-info small{font-size:.68rem;color:var(--muted)}
+.ci-price{font-weight:500;font-size:.88rem;margin-left:auto;padding-right:8px}
+.ci-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px}
+.cart-total{font-family:var(--font-d);font-size:1.5rem;font-weight:300;text-align:right;padding-top:14px}
+.cart-empty{text-align:center;padding:60px 0;color:var(--muted)}
+/* Toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 22px;border-radius:30px;font-size:.72rem;letter-spacing:.05em;z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap}
+.toast.show{opacity:1}
+/* Smoothing indicator */
+.smooth-badge{position:absolute;top:12px;right:12px;z-index:5;background:rgba(196,131,106,.85);color:#fff;padding:3px 10px;border-radius:12px;font-size:.6rem;font-weight:500;letter-spacing:.06em;display:none}
+.smooth-badge.show{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <div class="brand">LUMÉ<span class="brand-sub">BEAUTY</span></div>
+    <div class="nav">
+      <button class="nav-btn" id="btn-shop" onclick="goShop()">Shop</button>
+      <button class="nav-btn active" id="btn-tryon" onclick="goTryon()">Try-On</button>
+      <button class="nav-btn" id="btn-cart" onclick="goCart()">Cart <span id="cc"></span></button>
+    </div>
+  </div>
+
+  <div class="cam-area">
+    <video id="vid" autoplay muted playsinline></video>
+    <canvas id="cv"></canvas>
+    <div class="smooth-badge" id="smooth-badge">● TRACKING</div>
+
+    <div class="start-screen" id="start-screen">
+      <div class="start-icon">💄</div>
+      <p class="start-title">Virtual Try-On</p>
+      <p class="start-sub">ทดลองสีลิปสติกบนริมฝีปากจริง ผ่านกล้องหน้าแบบ Real-time พร้อม Lip Tracking</p>
+      <button class="start-btn" onclick="startCamera()">เปิดกล้อง / Enable Camera</button>
+      <p class="start-note">🔒 Camera ประมวลผลบนอุปกรณ์เท่านั้น ไม่ส่งไป Server</p>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p class="loading-txt" id="loading-txt">กำลังโหลด...</p>
+    </div>
+
+    <div class="err-screen" id="err-screen">
+      <div style="font-size:2.5rem" id="err-icon">🚫</div>
+      <p class="err-title" id="err-title">เกิดข้อผิดพลาด</p>
+      <p class="err-sub" id="err-sub">กรุณาลองใหม่</p>
+      <button class="retry-btn" onclick="retry()">ลองใหม่ / Retry</button>
+    </div>
+
+    <div class="face-guide" id="face-guide">
+      <div class="face-oval" id="face-oval"></div>
+      <p class="guide-txt" id="guide-txt">วางใบหน้าในกรอบ</p>
+    </div>
+    <p class="privacy">🔒 Camera processed locally on your device</p>
+  </div>
+
+  <div class="panel">
+    <p class="shade-meta" id="shade-meta">เลือก Shade ด้านล่าง</p>
+    <div class="shade-row" id="shade-row"></div>
+    <div class="prod-row">
+      <div class="prod-info">
+        <p id="pname">Velvet Lip Color</p>
+        <small id="pprice">฿1,290</small>
+      </div>
+      <button class="add-btn" id="add-btn" onclick="addCart()">Add to Cart</button>
+    </div>
+  </div>
+
+  <!-- SHOP SCREEN -->
+  <div class="screen" id="shop-screen">
+    <div class="scr-hdr"><h2>Collection</h2><p>เลือกสินค้าเพื่อทดลองสี</p></div>
+    <div class="prod-grid" id="prod-grid"></div>
+
+    <!-- Custom Color Picker -->
+    <div class="color-picker-section">
+      <h3>🎨 สร้างสีของคุณเอง</h3>
+      <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">เลือกสีจาก Palette หรือกำหนด HEX เอง แล้วกด Try On</p>
+
+      <div class="color-palette" id="color-palette"></div>
+
+      <div class="custom-hex">
+        <input type="color" id="color-picker-input" value="#C4836A" oninput="onColorPickerChange(this.value)">
+        <input type="text" id="hex-input" value="#C4836A" maxlength="7" placeholder="#C4836A" oninput="onHexInput(this.value)">
+        <span style="font-size:.72rem;color:var(--muted)" id="hex-preview-dot">●</span>
+      </div>
+
+      <div class="finish-row" id="finish-row">
+        <button class="finish-btn active" onclick="setFinish(this,'Matte')">Matte</button>
+        <button class="finish-btn" onclick="setFinish(this,'Velvet')">Velvet</button>
+        <button class="finish-btn" onclick="setFinish(this,'Glossy')">Glossy</button>
+        <button class="finish-btn" onclick="setFinish(this,'Satin')">Satin</button>
+      </div>
+
+      <div class="opacity-row">
+        <label>Opacity</label>
+        <input type="range" id="opacity-slider" min="40" max="95" value="80" oninput="onOpacityChange(this.value)">
+        <span style="font-size:.72rem;color:var(--muted);width:28px" id="opacity-val">80%</span>
+      </div>
+
+      <button class="add-custom-btn" onclick="addCustomShade()">+ Add to Try-On & Use Now</button>
+    </div>
+
+    <div class="custom-shades-list" id="custom-shades-list"></div>
+    <div style="height:20px"></div>
+  </div>
+
+  <!-- CART SCREEN -->
+  <div class="screen" id="cart-screen">
+    <div class="scr-hdr"><h2>Your Cart</h2></div>
+    <div class="cart-body" id="cart-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MediaPipe UMD bundle -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/vision_bundle.js" crossorigin="anonymous"></script>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const PRODUCTS = [
+  {id:1,name:'Velvet Lip Color',cat:'Lipstick',price:1290,bg:'#2a0c06',shades:[
+    {id:1,name:'Rose Nude',hex:'#C4836A',opacity:.80,finish:'Matte'},
+    {id:2,name:'Classic Red',hex:'#B22222',opacity:.85,finish:'Matte'},
+    {id:3,name:'Coral Pink',hex:'#E8735A',opacity:.75,finish:'Matte'},
+    {id:4,name:'Berry Crush',hex:'#8B2D6E',opacity:.82,finish:'Velvet'},
+    {id:5,name:'Wine Red',hex:'#722F37',opacity:.88,finish:'Matte'},
+    {id:6,name:'Soft Peach',hex:'#FFAD8A',opacity:.70,finish:'Velvet'},
+    {id:7,name:'Dusty Rose',hex:'#C08081',opacity:.78,finish:'Matte'},
+    {id:8,name:'Deep Plum',hex:'#4B0082',opacity:.85,finish:'Matte'},
+    {id:9,name:'Terracotta',hex:'#C66B4A',opacity:.80,finish:'Matte'},
+  ]},
+  {id:2,name:'Glossy Plumping Lip',cat:'Lip Gloss',price:990,bg:'#1a0514',shades:[
+    {id:10,name:'Crystal Clear',hex:'#FFB6C1',opacity:.50,finish:'Glossy'},
+    {id:11,name:'Rose Gold',hex:'#D4919A',opacity:.60,finish:'Glossy'},
+    {id:12,name:'Cherry Gloss',hex:'#DC143C',opacity:.65,finish:'Glossy'},
+    {id:13,name:'Peachy Keen',hex:'#FFAA80',opacity:.55,finish:'Glossy'},
+    {id:14,name:'Pink Lemonade',hex:'#FF69B4',opacity:.58,finish:'Glossy'},
+    {id:15,name:'Mauve Magic',hex:'#9B7FA6',opacity:.62,finish:'Glossy'},
+    {id:16,name:'Fuchsia Dream',hex:'#C83E7F',opacity:.68,finish:'Glossy'},
+  ]},
+  {id:3,name:'Satin Rouge',cat:'Lipstick',price:1490,bg:'#1a0508',shades:[
+    {id:17,name:'Nude Satin',hex:'#C9917A',opacity:.75,finish:'Satin'},
+    {id:18,name:'Mulberry',hex:'#7B3A62',opacity:.80,finish:'Satin'},
+    {id:19,name:'Brick Lane',hex:'#9E3A2F',opacity:.82,finish:'Satin'},
+    {id:20,name:'Pink Sand',hex:'#E8A0A0',opacity:.70,finish:'Satin'},
+    {id:21,name:'Rosewood',hex:'#A0522D',opacity:.78,finish:'Satin'},
+    {id:22,name:'Spiced Plum',hex:'#6B2D5E',opacity:.83,finish:'Satin'},
+    {id:23,name:'Crimson Satin',hex:'#AA0020',opacity:.84,finish:'Satin'},
+  ]}
+];
+
+const PALETTE_COLORS = [
+  '#FF0000','#FF4500','#FF6347','#FF7F50','#FFA07A',
+  '#FFB6C1','#FF69B4','#FF1493','#DC143C','#C71585',
+  '#8B0000','#800000','#A52A2A','#D2691E','#CD853F',
+  '#DEB887','#F4A460','#DAA520','#B8860B','#556B2F',
+  '#800080','#4B0082','#6A0DAD','#9400D3','#8B008B',
+  '#1A1A1A','#333333','#555555','#888888','#BBBBBB',
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let currentProduct = PRODUCTS[0];
+let currentShade   = PRODUCTS[0].shades[0];
+let customShades   = [];
+let customIdCounter = 1000;
+let cart = [];
+
+// Custom picker state
+let pickerHex    = '#C4836A';
+let pickerFinish = 'Matte';
+let pickerOpacity = 0.80;
+
+// MediaPipe
+let faceLandmarker = null;
+let videoStream    = null;
+let rafId          = null;
+let ctx2d          = null;
+let camReady       = false;
+let lastTs         = 0;
+
+// ── Smoothing buffers (EMA) ──
+const SMOOTH_FACTOR = 0.55; // 0=no smooth, 1=max smooth
+let smoothedLandmarks = null;
+
+// Lip landmark indices
+const OU=[61,185,40,39,37,0,267,269,270,409,291];
+const OL=[61,146,91,181,84,17,314,405,321,375,291];
+const IU=[78,191,80,81,82,13,312,311,310,415,308];
+const IL=[78,95,88,178,87,14,317,402,318,324,308];
+// All lip indices for smoothing
+const ALL_LIP_IDX=[...new Set([...OU,...OL,...IU,...IL])];
+
+// ─────────────────────────────────────────────
+// SMOOTHING — EMA per landmark
+// ─────────────────────────────────────────────
+function smoothLandmarks(raw) {
+  if (!smoothedLandmarks) {
+    smoothedLandmarks = raw.map(p => ({x:p.x, y:p.y, z:p.z||0}));
+    return smoothedLandmarks;
+  }
+  const s = SMOOTH_FACTOR;
+  for (let i of ALL_LIP_IDX) {
+    smoothedLandmarks[i].x = s * smoothedLandmarks[i].x + (1-s) * raw[i].x;
+    smoothedLandmarks[i].y = s * smoothedLandmarks[i].y + (1-s) * raw[i].y;
+  }
+  return smoothedLandmarks;
+}
+
+// ─────────────────────────────────────────────
+// SHADE ROW
+// ─────────────────────────────────────────────
+function buildShadeRow() {
+  const row = document.getElementById('shade-row');
+  row.innerHTML = '';
+  const allShades = [...currentProduct.shades, ...customShades];
+  allShades.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'sw' + (s.id === currentShade.id ? ' active' : '');
+    b.style.background = s.hex;
+    b.title = s.name;
+    b.onclick = () => pickShade(s);
+    row.appendChild(b);
+  });
+  updateShadeMeta();
+  document.getElementById('pname').textContent  = currentProduct.name;
+  document.getElementById('pprice').textContent = '฿' + currentProduct.price.toLocaleString();
+}
+
+function pickShade(s) {
+  currentShade = s;
+  document.querySelectorAll('.sw').forEach(el => el.classList.remove('active'));
+  const allShades = [...currentProduct.shades, ...customShades];
+  const btns = document.querySelectorAll('.sw');
+  allShades.forEach((sh, i) => { if (sh.id === s.id && btns[i]) btns[i].classList.add('active'); });
+  updateShadeMeta();
+  const btn = document.getElementById('add-btn');
+  btn.textContent = 'Add to Cart'; btn.classList.remove('done');
+}
+
+function updateShadeMeta() {
+  document.getElementById('shade-meta').textContent =
+    currentShade.name + '  ·  ' + currentShade.finish + '  ·  ' + currentShade.hex;
+}
+
+// ─────────────────────────────────────────────
+// CAMERA
+// ─────────────────────────────────────────────
+async function startCamera() {
+  document.getElementById('start-screen').style.display = 'none';
+  showLoading('กำลังโหลด MediaPipe...');
+
+  // Wait for vision global
+  let tries = 0;
+  while (typeof vision === 'undefined' && tries < 30) {
+    await new Promise(r => setTimeout(r, 300));
+    tries++;
+  }
+  if (typeof vision === 'undefined') {
+    hideLoading();
+    showError('โหลด AI Library ไม่สำเร็จ', 'ตรวจสอบ Internet แล้วกด Refresh หน้าเว็บ');
+    return;
+  }
+
+  if (!faceLandmarker) {
+    try {
+      showLoading('โหลด Face Model (~20 วินาที)...');
+      const { FaceLandmarker, FilesetResolver } = vision;
+      const fs = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm'
+      );
+      showLoading('เตรียม Face Landmarker...');
+      faceLandmarker = await FaceLandmarker.createFromOptions(fs, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        outputFaceBlendshapes: false
+      });
+    } catch(e) {
+      hideLoading();
+      showError('โหลด AI Model ไม่สำเร็จ', 'ตรวจสอบ Internet แล้วลองใหม่<br><small style="opacity:.6">' + e.message + '</small>');
+      return;
+    }
+  }
+
+  showLoading('กำลังเปิดกล้อง...');
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    const vid = document.getElementById('vid');
+    vid.srcObject = videoStream;
+    await vid.play();
+    camReady = true;
+    hideLoading();
+    document.getElementById('face-guide').classList.add('show');
+    const cv = document.getElementById('cv');
+    ctx2d = cv.getContext('2d');
+    startLoop();
+  } catch(err) {
+    hideLoading();
+    if (err.name === 'NotAllowedError') showError('🚫 Camera ถูกปฏิเสธ', 'คลิกไอคอน 🔒 ใน address bar แล้วเลือก Allow Camera');
+    else if (err.name === 'NotFoundError') showError('📷 ไม่พบกล้อง', 'ไม่พบกล้องหน้าบนอุปกรณ์นี้');
+    else showError('❌ เกิดข้อผิดพลาด', err.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// RENDER LOOP
+// ─────────────────────────────────────────────
+function startLoop() {
+  const vid = document.getElementById('vid');
+  const cv  = document.getElementById('cv');
+  const badge = document.getElementById('smooth-badge');
+
+  function loop(ts) {
+    if (!camReady) return;
+    if (cv.width !== vid.videoWidth || cv.height !== vid.videoHeight) {
+      cv.width  = vid.videoWidth  || 640;
+      cv.height = vid.videoHeight || 480;
+    }
+    ctx2d.clearRect(0, 0, cv.width, cv.height);
+
+    if (faceLandmarker && ts !== lastTs && vid.readyState >= 2) {
+      lastTs = ts;
+      let res;
+      try { res = faceLandmarker.detectForVideo(vid, ts); } catch(e) {
+        rafId = requestAnimationFrame(loop); return;
+      }
+
+      const oval = document.getElementById('face-oval');
+      const gtxt = document.getElementById('guide-txt');
+
+      if (res.faceLandmarks && res.faceLandmarks.length > 0) {
+        oval.classList.add('on');
+        gtxt.textContent = '';
+        badge.classList.add('show');
+
+        // Apply EMA smoothing
+        const smoothed = smoothLandmarks(res.faceLandmarks[0]);
+        drawLip(smoothed, cv.width, cv.height);
+      } else {
+        oval.classList.remove('on');
+        gtxt.textContent = 'วางใบหน้าในกรอบ';
+        badge.classList.remove('show');
+        smoothedLandmarks = null; // reset on face loss
+      }
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+// ─────────────────────────────────────────────
+// LIP RENDERER
+// ─────────────────────────────────────────────
+function drawLip(lm, W, H) {
+  const sc  = p => ({ x: p.x * W, y: p.y * H });
+  const ou  = OU.map(i => sc(lm[i]));
+  const ol  = OL.map(i => sc(lm[i]));
+  const iu  = IU.map(i => sc(lm[i]));
+  const il  = IL.map(i => sc(lm[i]));
+  const rgb = hexRgb(currentShade.hex);
+  if (!rgb) return;
+  const a = currentShade.opacity;
+
+  ctx2d.save();
+  ctx2d.translate(W, 0);
+  ctx2d.scale(-1, 1);
+
+  const outer = new Path2D();
+  outer.moveTo(ou[0].x, ou[0].y);
+  bezierCurve(outer, ou);
+  bezierCurve(outer, [...ol].reverse());
+  outer.closePath();
+
+  const inner = new Path2D();
+  inner.moveTo(iu[0].x, iu[0].y);
+  bezierCurve(inner, iu);
+  bezierCurve(inner, [...il].reverse());
+  inner.closePath();
+
+  ctx2d.save();
+  ctx2d.clip(outer);
+  ctx2d.globalCompositeOperation = 'source-over';
+
+  switch(currentShade.finish) {
+    case 'Glossy':
+      ctx2d.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a*.85})`;
+      ctx2d.fill(outer);
+      const cx  = ou.reduce((s,p)=>s+p.x,0)/ou.length;
+      const ty  = Math.min(...ou.map(p=>p.y));
+      const by  = Math.max(...ol.map(p=>p.y));
+      const g   = ctx2d.createLinearGradient(cx,ty,cx,by);
+      g.addColorStop(0,   'rgba(255,255,255,.45)');
+      g.addColorStop(0.28,'rgba(255,255,255,.14)');
+      g.addColorStop(1,   'rgba(255,255,255,0)');
+      ctx2d.fillStyle = g;
+      ctx2d.globalCompositeOperation = 'source-atop';
+      ctx2d.fill(outer);
+      break;
+    case 'Velvet':
+      ctx2d.filter = 'blur(1.5px)';
+      ctx2d.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a*.65})`;
+      ctx2d.fill(outer);
+      ctx2d.filter = 'none';
+      ctx2d.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a*.38})`;
+      ctx2d.fill(outer);
+      break;
+    case 'Satin':
+      ctx2d.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a*.9})`;
+      ctx2d.fill(outer);
+      const cx2 = ou.reduce((s,p)=>s+p.x,0)/ou.length;
+      const ty2 = Math.min(...ou.map(p=>p.y));
+      const by2 = Math.max(...ol.map(p=>p.y));
+      const g2  = ctx2d.createLinearGradient(cx2,ty2,cx2,by2);
+      g2.addColorStop(0.1,'rgba(255,255,255,.22)');
+      g2.addColorStop(0.5,'rgba(255,255,255,.05)');
+      g2.addColorStop(1,  'rgba(255,255,255,0)');
+      ctx2d.fillStyle = g2;
+      ctx2d.globalCompositeOperation = 'source-atop';
+      ctx2d.fill(outer);
+      break;
+    default: // Matte
+      ctx2d.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
+      ctx2d.fill(outer);
+  }
+
+  ctx2d.globalCompositeOperation = 'destination-out';
+  ctx2d.fill(inner);
+  ctx2d.restore();
+  ctx2d.restore();
+}
+
+function bezierCurve(path, pts) {
+  if (pts.length < 2) return;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = i > 0 ? pts[i-1] : pts[0];
+    const p1 = pts[i], p2 = pts[i+1];
+    const p3 = i < pts.length-2 ? pts[i+2] : p2;
+    path.bezierCurveTo(
+      p1.x+(p2.x-p0.x)/6, p1.y+(p2.y-p0.y)/6,
+      p2.x-(p3.x-p1.x)/6, p2.y-(p3.y-p1.y)/6,
+      p2.x, p2.y
+    );
+  }
+}
+
+function hexRgb(h) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+  return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : null;
+}
+
+// ─────────────────────────────────────────────
+// CUSTOM COLOR PICKER
+// ─────────────────────────────────────────────
+function buildPalette() {
+  const p = document.getElementById('color-palette');
+  p.innerHTML = '';
+  PALETTE_COLORS.forEach(hex => {
+    const b = document.createElement('div');
+    b.className = 'palette-sw';
+    b.style.background = hex;
+    b.title = hex;
+    b.onclick = () => {
+      document.querySelectorAll('.palette-sw').forEach(el=>el.classList.remove('picked'));
+      b.classList.add('picked');
+      pickerHex = hex;
+      document.getElementById('color-picker-input').value = hex;
+      document.getElementById('hex-input').value = hex;
+      updateHexPreview(hex);
+    };
+    p.appendChild(b);
+  });
+}
+
+function onColorPickerChange(val) {
+  pickerHex = val;
+  document.getElementById('hex-input').value = val;
+  updateHexPreview(val);
+}
+
+function onHexInput(val) {
+  if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+    pickerHex = val;
+    document.getElementById('color-picker-input').value = val;
+    updateHexPreview(val);
+  }
+}
+
+function updateHexPreview(hex) {
+  document.getElementById('hex-preview-dot').style.color = hex;
+}
+
+function setFinish(btn, finish) {
+  pickerFinish = finish;
+  document.querySelectorAll('.finish-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function onOpacityChange(val) {
+  pickerOpacity = val / 100;
+  document.getElementById('opacity-val').textContent = val + '%';
+}
+
+function addCustomShade() {
+  if (!hexRgb(pickerHex)) { toast('กรุณาใส่ HEX Color ที่ถูกต้อง'); return; }
+  const shade = {
+    id: customIdCounter++,
+    name: 'Custom ' + pickerHex.toUpperCase(),
+    hex: pickerHex,
+    opacity: pickerOpacity,
+    finish: pickerFinish,
+    isCustom: true
+  };
+  customShades.push(shade);
+  buildShadeRow();
+  pickShade(shade);
+  buildCustomShadesList();
+  goTryon();
+  toast('เพิ่มสี ' + pickerHex + ' แล้ว ✨');
+}
+
+function buildCustomShadesList() {
+  const list = document.getElementById('custom-shades-list');
+  list.innerHTML = '';
+  if (customShades.length === 0) return;
+  customShades.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;align-items:center;gap:6px;background:#fff;border-radius:20px;padding:4px 10px 4px 4px;box-shadow:0 1px 4px rgba(0,0,0,.1)';
+    el.innerHTML = `
+      <div style="width:24px;height:24px;border-radius:50%;background:${s.hex};border:1px solid rgba(0,0,0,.1)"></div>
+      <span style="font-size:.7rem;font-family:var(--font-b)">${s.hex}</span>
+      <span style="font-size:.65rem;color:var(--muted)">${s.finish}</span>
+      <button onclick="removeCustomShade(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;padding:0 0 0 4px">✕</button>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function removeCustomShade(i) {
+  customShades.splice(i, 1);
+  buildShadeRow();
+  buildCustomShadesList();
+  pickShade(currentProduct.shades[0]);
+}
+
+// ─────────────────────────────────────────────
+// CART
+// ─────────────────────────────────────────────
+function addCart() {
+  const ex = cart.find(c => c.pid === currentProduct.id && c.sid === currentShade.id && c.hex === currentShade.hex);
+  if (ex) { ex.qty++; }
+  else {
+    cart.push({
+      pid: currentProduct.id, sid: currentShade.id,
+      pname: currentProduct.name,
+      sname: currentShade.name,
+      hex: currentShade.hex,
+      finish: currentShade.finish,
+      price: currentProduct.price, qty: 1
+    });
+  }
+  const btn = document.getElementById('add-btn');
+  btn.textContent = '✓ Added!'; btn.classList.add('done');
+  setTimeout(() => { btn.textContent = 'Add to Cart'; btn.classList.remove('done'); }, 2200);
+  updateCC();
+  toast('เพิ่ม ' + currentShade.name + ' ลงตะกร้าแล้ว 🛍️');
+}
+
+function updateCC() {
+  const n = cart.reduce((a,c) => a+c.qty, 0);
+  document.getElementById('cc').textContent = n > 0 ? '(' + n + ')' : '';
+}
+
+function renderCart() {
+  const b = document.getElementById('cart-body');
+  if (cart.length === 0) {
+    b.innerHTML = '<div class="cart-empty"><div style="font-size:2.5rem">🛍️</div><p style="margin-top:10px">ตะกร้าของคุณว่างอยู่</p></div>';
+    return;
+  }
+  let html = cart.map((item, i) => `
+    <div class="cart-item">
+      <div class="ci-dot" style="background:${item.hex}"></div>
+      <div class="ci-info">
+        <strong>${item.pname}</strong>
+        <small>${item.sname} · ${item.finish} · จำนวน ${item.qty}</small>
+      </div>
+      <span class="ci-price">฿${(item.price * item.qty).toLocaleString()}</span>
+      <button class="ci-del" onclick="delCart(${i})">✕</button>
+    </div>
+  `).join('');
+  const total = cart.reduce((a,c) => a + c.price * c.qty, 0);
+  html += `<div class="cart-total">รวม: ฿${total.toLocaleString()}</div>`;
+  html += `<button style="width:100%;margin-top:20px;padding:14px;background:#1a1a1a;color:#fff;border:none;border-radius:30px;font-family:var(--font-b);font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;opacity:.4;cursor:not-allowed">Checkout (Coming Soon)</button>`;
+  b.innerHTML = html;
+}
+
+function delCart(i) { cart.splice(i, 1); updateCC(); renderCart(); }
+
+// ─────────────────────────────────────────────
+// PRODUCT GRID
+// ─────────────────────────────────────────────
+function buildProductGrid() {
+  const g = document.getElementById('prod-grid');
+  g.innerHTML = '';
+  PRODUCTS.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'prod-card';
+    d.innerHTML = `
+      <div class="prod-thumb" style="background:${p.bg}">
+        <p class="prod-thumb-title">${p.name}</p>
+        <div class="sw-mini-row">
+          ${p.shades.slice(0,7).map(s=>`<div class="sw-mini" style="background:${s.hex}"></div>`).join('')}
+        </div>
+      </div>
+      <div class="prod-body">
+        <h3>${p.name}</h3>
+        <p class="cat">${p.cat} · ฿${p.price.toLocaleString()}</p>
+        <p style="font-size:.65rem;color:var(--muted);margin-bottom:7px">${p.shades.length} shades</p>
+        <button class="try-btn">◎ Try On</button>
+      </div>
+    `;
+    d.querySelector('.try-btn').onclick = () => {
+      currentProduct = p;
+      currentShade   = p.shades[0];
+      buildShadeRow();
+      goTryon();
+    };
+    g.appendChild(d);
+  });
+}
+
+// ─────────────────────────────────────────────
+// SCREEN NAV
+// ─────────────────────────────────────────────
+function goTryon() { hide('shop-screen'); hide('cart-screen'); setActive('btn-tryon'); }
+function goShop()  { show('shop-screen'); hide('cart-screen'); buildProductGrid(); setActive('btn-shop'); }
+function goCart()  { hide('shop-screen'); show('cart-screen'); renderCart(); setActive('btn-cart'); }
+function show(id)  { document.getElementById(id).classList.add('show'); }
+function hide(id)  { document.getElementById(id).classList.remove('show'); }
+function setActive(id) {
+  ['btn-shop','btn-tryon','btn-cart'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function showLoading(txt) { document.getElementById('loading-txt').textContent = txt; document.getElementById('loading').classList.add('show'); }
+function hideLoading()    { document.getElementById('loading').classList.remove('show'); }
+function showError(title, sub) {
+  document.getElementById('err-title').innerHTML = title;
+  document.getElementById('err-sub').innerHTML   = sub;
+  document.getElementById('err-screen').classList.add('show');
+}
+function retry() {
+  document.getElementById('err-screen').classList.remove('show');
+  document.getElementById('start-screen').style.display = 'flex';
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+buildShadeRow();
+buildPalette();
+updateHexPreview(pickerHex);
+</script>
+</body>
+</html>
